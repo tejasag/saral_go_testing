@@ -20,9 +20,9 @@ func NewSlideGenerator(outputDir string) *SlideGenerator {
 	return &SlideGenerator{OutputDir: outputDir}
 }
 
-func (s *SlideGenerator) GenerateSlides(paperID string, title string, sections map[string]common.SectionData) (string, map[string][]string, string, error) {
+func (s *SlideGenerator) GenerateSlides(paperID string, title string, authors string, sections map[string]common.SectionData) (string, map[string][]string, string, error) {
 	// 1. Generate LaTeX
-	latexContent := s.generateLatex(title, sections)
+	latexContent := s.generateLatex(title, authors, sections)
 
 	// 2. Write to file
 	if err := os.MkdirAll(s.OutputDir, 0755); err != nil {
@@ -45,7 +45,7 @@ func (s *SlideGenerator) GenerateSlides(paperID string, title string, sections m
 	return titleSlide, sectionSlides, pdfPath, err
 }
 
-func (s *SlideGenerator) generateLatex(title string, sections map[string]common.SectionData) string {
+func (s *SlideGenerator) generateLatex(title string, author string, sections map[string]common.SectionData) string {
 	var sb strings.Builder
 
 	// Header
@@ -56,6 +56,7 @@ func (s *SlideGenerator) generateLatex(title string, sections map[string]common.
 \usepackage{ragged2e}
 
 \title{` + common.EscapeLatex(title) + `}
+\author{` + common.EscapeLatex(author) + `}
 \date{\today}
 
 \begin{document}

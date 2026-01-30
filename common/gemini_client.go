@@ -34,6 +34,72 @@ func (g *GeminiClient) Close() {
 	g.client.Close()
 }
 
+// GenerateText generates text from a prompt (generic method for custom prompts)
+func (g *GeminiClient) GenerateText(prompt string) (string, error) {
+	ctx := context.Background()
+	resp, err := g.model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return "", fmt.Errorf("gemini generation error: %w", err)
+	}
+	return g.extractTextFromResponse(resp)
+}
+
+// PaperMetadata holds extracted paper information
+type PaperMetadata struct {
+	Title   string `json:"title"`
+	Authors string `json:"authors"`
+}
+
+// ExtractMetadata extracts title and authors from paper text using Gemini
+func (g *GeminiClient) ExtractMetadata(text string) (*PaperMetadata, error) {
+	ctx := context.Background()
+
+	// Limit text to first 2000 chars (metadata is usually at the start)
+	if len(text) > 2000 {
+		text = text[:2000]
+	}
+
+	prompt := fmt.Sprintf(`Extract the title and authors from this research paper text.
+
+Return in exactly this format (no extra text):
+TITLE: <paper title>
+AUTHORS: <author names separated by commas>
+
+If you cannot find the title, use "Research Paper".
+If you cannot find authors, use "Authors".
+
+Text:
+%s`, text)
+
+	resp, err := g.model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return &PaperMetadata{Title: "Research Paper", Authors: "Authors"}, err
+	}
+
+	response, err := g.extractTextFromResponse(resp)
+	if err != nil {
+		return &PaperMetadata{Title: "Research Paper", Authors: "Authors"}, err
+	}
+
+	// Parse the response
+	metadata := &PaperMetadata{Title: "Research Paper", Authors: "Authors"}
+	lines := strings.Split(response, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(strings.ToUpper(line), "TITLE:") {
+			metadata.Title = strings.TrimSpace(strings.TrimPrefix(line, "TITLE:"))
+			metadata.Title = strings.TrimPrefix(metadata.Title, ":")
+			metadata.Title = strings.TrimSpace(metadata.Title)
+		} else if strings.HasPrefix(strings.ToUpper(line), "AUTHORS:") {
+			metadata.Authors = strings.TrimSpace(strings.TrimPrefix(line, "AUTHORS:"))
+			metadata.Authors = strings.TrimPrefix(metadata.Authors, ":")
+			metadata.Authors = strings.TrimSpace(metadata.Authors)
+		}
+	}
+
+	return metadata, nil
+}
+
 // GenerateScript generates a video script from text (for video pipeline)
 func (g *GeminiClient) GenerateScript(text string) (string, error) {
 	ctx := context.Background()

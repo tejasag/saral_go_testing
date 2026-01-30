@@ -45,6 +45,15 @@ func ProcessVideoPipeline(config common.PipelineConfig) error {
 	}
 	defer gemini.Close()
 
+	// Extract paper metadata (title and authors)
+	log.Println("Extracting paper metadata...")
+	paperMetadata, err := gemini.ExtractMetadata(text)
+	if err != nil {
+		log.Printf("Warning: metadata extraction failed: %v, using defaults", err)
+	}
+	log.Printf("Paper Title: %s", paperMetadata.Title)
+	log.Printf("Paper Authors: %s", paperMetadata.Authors)
+
 	fullScript, err := gemini.GenerateScript(text)
 	if err != nil {
 		return fmt.Errorf("script generation failed: %w", err)
@@ -106,8 +115,8 @@ func ProcessVideoPipeline(config common.PipelineConfig) error {
 	go func() {
 		defer assetWg.Done()
 		var err error
-		docTitle := strings.TrimSuffix(filepath.Base(config.PDFPath), filepath.Ext(config.PDFPath))
-		titleSlide, sectionSlides, _, err = slideGen.GenerateSlides(docTitle, docTitle, sections)
+		// Use extracted paper metadata for title slide
+		titleSlide, sectionSlides, _, err = slideGen.GenerateSlides(paperMetadata.Title, paperMetadata.Title, paperMetadata.Authors, sections)
 		if err != nil {
 			log.Printf("Slide generation failed: %v", err)
 		} else {

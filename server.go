@@ -15,6 +15,7 @@ import (
 
 	"saral_go_testing/common"
 	"saral_go_testing/pipelines/poster"
+	"saral_go_testing/pipelines/reel"
 	"saral_go_testing/pipelines/video"
 )
 
@@ -80,6 +81,8 @@ func (p *WorkerPool) processJob(job *Job) {
 		err = video.ProcessVideoPipeline(job.Config)
 	case "poster":
 		err = poster.ProcessPosterPipeline(job.Config)
+	case "reel":
+		err = reel.ProcessReelPipeline(job.Config)
 	default:
 		err = fmt.Errorf("unknown mode: %s", job.Mode)
 	}
@@ -170,13 +173,13 @@ func (s *Server) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 	if mode == "" {
 		mode = "video"
 	}
-	if mode != "video" && mode != "poster" {
-		http.Error(w, "Invalid mode. Use 'video' or 'poster'", http.StatusBadRequest)
+	if mode != "video" && mode != "poster" && mode != "reel" {
+		http.Error(w, "Invalid mode. Use 'video', 'poster', or 'reel'", http.StatusBadRequest)
 		return
 	}
 
-	if mode == "video" && s.sarvamKey == "" {
-		http.Error(w, "SARVAM_API_KEY not configured for video mode", http.StatusInternalServerError)
+	if (mode == "video" || mode == "reel") && s.sarvamKey == "" {
+		http.Error(w, "SARVAM_API_KEY not configured for "+mode+" mode", http.StatusInternalServerError)
 		return
 	}
 
@@ -296,7 +299,7 @@ func StartServer(addr string, numWorkers int) {
 	}
 
 	log.Printf("Server starting on %s with %d workers", addr, numWorkers)
-	log.Printf("POST to any route with 'pdf' form field to process")
+	log.Printf("POST to any route with 'pdf' form field and ?mode=video|poster|reel to process")
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server failed: %v", err)
