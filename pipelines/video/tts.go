@@ -17,10 +17,18 @@ import (
 
 type SarvamClient struct {
 	APIKey string
+	sem    chan struct{} // Semaphore to limit concurrent API calls
 }
 
+// Global semaphore to limit concurrent TTS API requests across all clients
+// This prevents GOAWAY errors from the server due to too many concurrent HTTP/2 streams
+var globalTTSSem = make(chan struct{}, 2)
+
 func NewSarvamClient(apiKey string) *SarvamClient {
-	return &SarvamClient{APIKey: apiKey}
+	return &SarvamClient{
+		APIKey: apiKey,
+		sem:    globalTTSSem,
+	}
 }
 
 func (s *SarvamClient) GenerateAudio(text, outputDir, filename, language string) (string, error) {
@@ -88,6 +96,10 @@ func (s *SarvamClient) GenerateAudio(text, outputDir, filename, language string)
 }
 
 func (s *SarvamClient) synthesizeChunk(text, outputPath, language string) error {
+	// Acquire semaphore to limit concurrent API calls
+	s.sem <- struct{}{}
+	defer func() { <-s.sem }()
+
 	url := "https://api.sarvam.ai/text-to-speech"
 
 	targetLang := "en-IN"
