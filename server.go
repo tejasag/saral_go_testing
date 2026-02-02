@@ -171,7 +171,14 @@ func (s *Server) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 
 	mode := r.URL.Query().Get("mode")
 	if mode == "" {
-		mode = "video"
+		switch r.URL.Path {
+		case "/poster":
+			mode = "poster"
+		case "/reel":
+			mode = "reel"
+		default:
+			mode = "video"
+		}
 	}
 	if mode != "video" && mode != "poster" && mode != "reel" {
 		http.Error(w, "Invalid mode. Use 'video', 'poster', or 'reel'", http.StatusBadRequest)
@@ -289,6 +296,9 @@ func StartServer(addr string, numWorkers int) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.handleHealth)
 	mux.HandleFunc("/status", server.handleStatus)
+	mux.HandleFunc("/video", server.catchAllHandler)
+	mux.HandleFunc("/poster", server.catchAllHandler)
+	mux.HandleFunc("/reel", server.catchAllHandler)
 	mux.HandleFunc("/", server.catchAllHandler)
 
 	httpServer := &http.Server{
