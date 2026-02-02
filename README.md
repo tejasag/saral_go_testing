@@ -13,6 +13,7 @@
 - PDFLatex 
 - ONNX Runtime (using brew on Mac)
   - Verify `/opt/homebrew/lib/libonnxruntime.dylib` exists on Mac or `/usr/lib/libonnxruntime.so` exists on Linux
+- OpenCV
 
 ## Sample `.env` file
 
