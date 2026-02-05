@@ -271,6 +271,118 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handlePosterDirect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form
+	r.ParseMultipartForm(100 << 20)
+
+	file, header, err := r.FormFile("pdf")
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to get PDF file: " + err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	if filepath.Ext(header.Filename) != ".pdf" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Only PDF files are accepted",
+		})
+		return
+	}
+
+	// Create temporary files for processing
+	jobID := fmt.Sprintf("%d", time.Now().UnixNano())
+	pdfPath := filepath.Join(s.uploadDir, jobID+"_"+header.Filename)
+	outputDir := "./output/output_" + jobID
+
+	dst, err := os.Create(pdfPath)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to save file: " + err.Error(),
+		})
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to save file: " + err.Error(),
+		})
+		return
+	}
+	dst.Close() // Close before processing
+
+	// Process poster pipeline synchronously
+	config := common.PipelineConfig{
+		PDFPath:   pdfPath,
+		OutputDir: outputDir,
+		GeminiKey: s.geminiKey,
+		SarvamKey: s.sarvamKey,
+		Mode:      "poster",
+	}
+
+	log.Printf("[Direct Poster] Processing %s", header.Filename)
+	err = poster.ProcessPosterPipeline(config)
+
+	if err != nil {
+		log.Printf("[Direct Poster] Failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Poster generation failed: " + err.Error(),
+		})
+		return
+	}
+
+	// Find the generated PDF
+	baseName := filepath.Base(pdfPath)
+	baseName = baseName[:len(baseName)-len(filepath.Ext(baseName))]
+	posterName := baseName + "_poster"
+	posterPDFPath := filepath.Join(outputDir, "poster", posterName+".pdf")
+
+	// Check if PDF exists
+	if _, err := os.Stat(posterPDFPath); os.IsNotExist(err) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Poster PDF was not generated",
+		})
+		return
+	}
+
+	// Read the PDF file
+	pdfData, err := os.ReadFile(posterPDFPath)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to read generated PDF: " + err.Error(),
+		})
+		return
+	}
+
+	// Return the PDF
+	log.Printf("[Direct Poster] Success! Returning PDF (%d bytes)", len(pdfData))
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.pdf\"", posterName))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(pdfData)))
+	w.Write(pdfData)
+}
+
 func (s *Server) catchAllHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		s.handlePDFUpload(w, r)
@@ -280,7 +392,6 @@ func (s *Server) catchAllHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "PDF Processing Server",
-		"usage":   "POST any route with 'pdf' form field. Query params: ?mode=video|poster",
 		"status":  "GET /status?id=<job_id>",
 		"health":  "GET /health",
 	})
@@ -296,9 +407,9 @@ func StartServer(addr string, numWorkers int) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.handleHealth)
 	mux.HandleFunc("/status", server.handleStatus)
-	mux.HandleFunc("/video", server.catchAllHandler)
-	mux.HandleFunc("/poster", server.catchAllHandler)
-	mux.HandleFunc("/reel", server.catchAllHandler)
+	// mux.HandleFunc("/video", server.catchAllHandler)
+	mux.HandleFunc("/poster", server.handlePosterDirect) // Direct PDF response
+	// mux.HandleFunc("/reel", server.catchAllHandler)
 	mux.HandleFunc("/", server.catchAllHandler)
 
 	httpServer := &http.Server{
