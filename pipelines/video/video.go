@@ -13,6 +13,9 @@ type VideoGenerator struct {
 	OutputDir string
 }
 
+// Global semaphore to limit concurrent ffmpeg processes
+var ffmpegSem = make(chan struct{}, 4)
+
 func NewVideoGenerator(outputDir string) *VideoGenerator {
 	return &VideoGenerator{OutputDir: outputDir}
 }
@@ -49,6 +52,10 @@ func (v *VideoGenerator) CreateSegment(images []string, audioPath, outputName st
 	os.WriteFile(demuxerPath, []byte(demuxerContent), 0644)
 
 	// 4. FFmpeg command
+	// Acquire semaphore
+	ffmpegSem <- struct{}{}
+	defer func() { <-ffmpegSem }()
+
 	cmd := exec.Command("ffmpeg",
 		"-y",
 		"-f", "concat", "-safe", "0", "-i", demuxerPath,

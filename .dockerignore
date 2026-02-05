@@ -1,0 +1,7 @@
+# Git and Docker ignore
+.git
+.gitignore
+output/
+uploads/
+tmp/
+.env

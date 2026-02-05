@@ -133,17 +133,22 @@ func (t *PosterTemplate) generateThreeColumnLayout(content *common.PosterContent
 	sb.WriteString("\\end{column}\n\n")
 	sb.WriteString("\\separatorcolumn\n\n")
 
-	// Column 2: Results (main findings with potential images)
+	// Column 2: Results (main findings with first image)
 	sb.WriteString("\\begin{column}{\\colwidth}\n\n")
 
 	if len(content.Results) > 0 {
-		sb.WriteString(t.generateResultsBlock(content.Results, imagePaths))
+		// Pass only the first image to Results block
+		var resultsImages []string
+		if len(imagePaths) > 0 {
+			resultsImages = imagePaths[0:1]
+		}
+		sb.WriteString(t.generateResultsBlock(content.Results, resultsImages))
 	}
 
 	sb.WriteString("\\end{column}\n\n")
 	sb.WriteString("\\separatorcolumn\n\n")
 
-	// Column 3: Conclusion, References
+	// Column 3: Conclusion, References, and second image
 	sb.WriteString("\\begin{column}{\\colwidth}\n\n")
 
 	if len(content.Conclusion) > 0 {
@@ -152,6 +157,11 @@ func (t *PosterTemplate) generateThreeColumnLayout(content *common.PosterContent
 
 	if len(content.References) > 0 {
 		sb.WriteString(t.generateReferencesBlock(content.References))
+	}
+
+	// Add second image after references if available
+	if len(imagePaths) > 1 {
+		sb.WriteString(t.generateSingleFigure(imagePaths[1], 2))
 	}
 
 	sb.WriteString("\\end{column}\n\n")
@@ -241,24 +251,17 @@ func (t *PosterTemplate) generateResultsBlock(results []string, imagePaths []str
 	}
 	sb.WriteString("\\end{itemize}\n")
 
-	// Add images if available (limit to 2 for space)
+	// Add images if available (limit to 1 to prevent overflow)
 	if len(imagePaths) > 0 {
-		sb.WriteString("\n\\vspace{1em}\n")
-		maxImages := 2
-		if len(imagePaths) < maxImages {
-			maxImages = len(imagePaths)
-		}
-
-		for i := 0; i < maxImages; i++ {
-			// Use absolute path for the image
-			absPath, err := filepath.Abs(imagePaths[i])
-			if err != nil {
-				continue
-			}
+		sb.WriteString("\n\\vspace{0.5em}\n")
+		// Only include the first image to save space
+		absPath, err := filepath.Abs(imagePaths[0])
+		if err == nil {
 			sb.WriteString("\\begin{figure}\n")
 			sb.WriteString("\\centering\n")
-			sb.WriteString(fmt.Sprintf("\\includegraphics[width=0.9\\textwidth,height=0.25\\textheight,keepaspectratio]{%s}\n", absPath))
-			sb.WriteString(fmt.Sprintf("\\caption{Figure %d}\n", i+1))
+			// Increased size: 1.75x (17.5cm height, 0.95 textwidth)
+			sb.WriteString(fmt.Sprintf("\\includegraphics[width=0.95\\textwidth,height=17.5cm,keepaspectratio]{%s}\n", absPath))
+			sb.WriteString("\\caption{Key Figure}\n")
 			sb.WriteString("\\end{figure}\n")
 		}
 	}
@@ -281,6 +284,26 @@ func (t *PosterTemplate) generateReferencesBlock(refs []string) string {
 
 	sb.WriteString("\\end{enumerate}\n")
 	sb.WriteString("\\end{block}\n\n")
+
+	return sb.String()
+}
+
+// generateSingleFigure generates a single figure block with the given image path
+func (t *PosterTemplate) generateSingleFigure(imagePath string, figNum int) string {
+	var sb strings.Builder
+
+	absPath, err := filepath.Abs(imagePath)
+	if err != nil {
+		return ""
+	}
+
+	sb.WriteString("\\vspace{0.5em}\n")
+	sb.WriteString("\\begin{figure}\n")
+	sb.WriteString("\\centering\n")
+	// Increased size: 1.75x (17.5cm height, 0.95 textwidth)
+	sb.WriteString(fmt.Sprintf("\\includegraphics[width=0.95\\textwidth,height=17.5cm,keepaspectratio]{%s}\n", absPath))
+	sb.WriteString(fmt.Sprintf("\\caption{Figure %d}\n", figNum))
+	sb.WriteString("\\end{figure}\n")
 
 	return sb.String()
 }

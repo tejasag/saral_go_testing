@@ -173,26 +173,26 @@ TITLE: [Generate a concise, impactful title]
 AUTHORS: [Extract or generate appropriate author names/affiliations]
 
 ABSTRACT:
-[Write a 4-6 sentence abstract summarizing the research problem, approach, and key findings. Be detailed.]
+[Write a concise 3-4 sentence abstract summarizing the key problem, approach, and main result.]
 
 INTRODUCTION:
-[Write 5-7 bullet points introducing the research problem, motivation, and background. Each point should be 1-2 sentences.]
+[Write exactly 3 concise bullet points (one sentence each) introducing the problem and motivation.]
 
 METHODOLOGY:
-[Write 5-7 bullet points describing the methods, architecture, and approach used. Be specific and technical.]
+[Write exactly 3 concise bullet points (one sentence each) describing the key methods used.]
 
 RESULTS:
-[Write 6-8 bullet points highlighting the key findings, performance metrics, and comparisons. Include specific numbers where available.]
+[Write exactly 3 concise bullet points (one sentence each) highlighting the main findings with specific metrics.]
 
 CONCLUSION:
-[Write 4-5 bullet points summarizing conclusions, implications, limitations, and future work.]
+[Write exactly 2-3 concise bullet points (one sentence each) summarizing key takeaways and future work.]
 
 REFERENCES:
 [List 4-5 key references if identifiable from the text]
 
-Each bullet point should be detailed and informative (1-2 sentences each).
+Each bullet point must be exactly ONE sentence - concise and focused.
 Start each bullet point with "- ".
-Fill the poster with substantive content - avoid being too brief.
+Prioritize clarity and brevity to fit poster space constraints.
 
 Text:
 %s
